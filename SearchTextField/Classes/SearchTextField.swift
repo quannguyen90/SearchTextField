@@ -137,6 +137,7 @@ open class SearchTextField: UITextField {
     // Private implementation
     
     fileprivate var tableView: UITableView?
+    fileprivate var viewContainer: UIView?
     fileprivate var shadowView: UIView?
     fileprivate var direction: Direction = .down
     fileprivate var fontConversionRate: CGFloat = 0.7
@@ -167,7 +168,7 @@ open class SearchTextField: UITextField {
     
     open override func willMove(toWindow newWindow: UIWindow?) {
         super.willMove(toWindow: newWindow)
-        tableView?.removeFromSuperview()
+        viewContainer?.removeFromSuperview()
     }
     
     override open func willMove(toSuperview newSuperview: UIView?) {
@@ -205,12 +206,20 @@ open class SearchTextField: UITextField {
     
     // Create the filter table and shadow view
     fileprivate func buildSearchTableView() {
-        guard let tableView = tableView, let shadowView = shadowView else {
+        guard let tableView = tableView, let shadowView = shadowView, let viewContainer = viewContainer else {
             self.tableView = UITableView(frame: CGRect.zero)
             self.shadowView = UIView(frame: CGRect.zero)
+            self.viewContainer = UIView(frame: CGRect.zero)
             buildSearchTableView()
             return
+                
         }
+        
+        viewContainer.backgroundColor = UIColor.clear
+        viewContainer.layer.shadowColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.12).cgColor
+        viewContainer.layer.shadowOpacity = 1
+        viewContainer.layer.shadowRadius = 30
+        viewContainer.layer.shadowOffset = CGSize(width: 4, height: 4)
         
         tableView.layer.masksToBounds = true
         tableView.layer.borderWidth = theme.borderWidth > 0 ? theme.borderWidth : 0.5
@@ -226,9 +235,20 @@ open class SearchTextField: UITextField {
         shadowView.layer.shadowColor = UIColor.black.cgColor
         shadowView.layer.shadowOffset = CGSize.zero
         shadowView.layer.shadowOpacity = 1
+        let dict = ["table": tableView]
+        viewContainer.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        let constraintH = NSLayoutConstraint.constraints(withVisualFormat: "H:|-0-[table]-0-|", options: NSLayoutConstraint.FormatOptions(rawValue: 0), metrics: nil, views: dict)
+        viewContainer.addConstraints(constraintH)
         
-        self.window?.addSubview(tableView)
-        
+        let constraintV = NSLayoutConstraint.constraints(withVisualFormat: "V:|-0-[table]-0-|", options: NSLayoutConstraint.FormatOptions(rawValue: 0), metrics: nil, views: dict)
+        viewContainer.addConstraints(constraintV)
+
+        self.window?.addSubview(viewContainer)
+
+//        self.window?.addSubview(shadowView)
+//        self.window?.addSubview(tableView)
+
         redrawSearchTableView()
     }
     
@@ -266,11 +286,11 @@ open class SearchTextField: UITextField {
     // Re-set frames and theme colors
     fileprivate func redrawSearchTableView() {
         if inlineMode {
-            tableView?.isHidden = true
+            viewContainer?.isHidden = true
             return
         }
         
-        if let tableView = tableView {
+        if let viewContainer = viewContainer, let tableView = tableView {
             guard let frame = self.superview?.convert(self.frame, to: nil) else { return }
             
             //TableViews use estimated cell heights to calculate content size until they
@@ -301,9 +321,9 @@ open class SearchTextField: UITextField {
                 tableViewFrame.origin = self.convert(tableViewFrame.origin, to: nil)
                 tableViewFrame.origin.x += 2 + tableXOffset
                 tableViewFrame.origin.y += frame.size.height + 2 + tableYOffset
-                self.tableView?.frame.origin = tableViewFrame.origin // Avoid animating from (0, 0) when displaying at launch
+                self.viewContainer?.frame.origin = tableViewFrame.origin // Avoid animating from (0, 0) when displaying at launch
                 UIView.animate(withDuration: 0.2, animations: { [weak self] in
-                    self?.tableView?.frame = tableViewFrame
+                    self?.viewContainer?.frame = tableViewFrame
                 })
                 
                 var shadowFrame = CGRect(x: 0, y: 0, width: frame.size.width - 6, height: 1)
@@ -314,22 +334,28 @@ open class SearchTextField: UITextField {
             } else {
                 let tableHeight = min((tableView.contentSize.height), (UIScreen.main.bounds.size.height - frame.origin.y - theme.cellHeight))
                 UIView.animate(withDuration: 0.2, animations: { [weak self] in
-                    self?.tableView?.frame = CGRect(x: frame.origin.x + 2, y: (frame.origin.y - tableHeight), width: frame.size.width - 4, height: tableHeight)
+                    self?.viewContainer?.frame = CGRect(x: frame.origin.x + 2, y: (frame.origin.y - tableHeight), width: frame.size.width - 4, height: tableHeight)
                     self?.shadowView?.frame = CGRect(x: frame.origin.x + 3, y: (frame.origin.y + 3), width: frame.size.width - 6, height: 1)
                 })
             }
             
-            superview?.bringSubviewToFront(tableView)
+            superview?.bringSubviewToFront(viewContainer)
             superview?.bringSubviewToFront(shadowView!)
             
             if self.isFirstResponder {
                 superview?.bringSubviewToFront(self)
             }
             
-            tableView.layer.borderColor = theme.borderColor.cgColor
-            tableView.layer.cornerRadius = tableCornerRadius
+            tableView.layer.borderColor = UIColor.clear.cgColor//theme.borderColor.cgColor
+            tableView.layer.cornerRadius = 8
+//            tableView.layer
             tableView.separatorColor = theme.separatorColor
-            tableView.backgroundColor = theme.bgColor
+            tableView.backgroundColor = UIColor.white
+            
+            tableView.layer.shadowColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.15).cgColor
+            tableView.layer.shadowOpacity = 1
+            tableView.layer.shadowRadius = 30
+            tableView.layer.shadowOffset = CGSize(width: 4, height: 4)
             
             tableView.reloadData()
         }
@@ -426,7 +452,7 @@ open class SearchTextField: UITextField {
         if let tableFrame:CGRect = tableView?.frame {
             let newFrame = CGRect(x: tableFrame.origin.x, y: tableFrame.origin.y, width: tableFrame.size.width, height: 0.0)
             UIView.animate(withDuration: 0.2, animations: { [weak self] in
-                self?.tableView?.frame = newFrame
+                self?.viewContainer?.frame = newFrame
             })
             
         }
